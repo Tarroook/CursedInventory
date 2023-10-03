@@ -1,16 +1,13 @@
 using BepInEx;
 using R2API;
 using RoR2;
+using System;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Networking;
 
 namespace CursedInventoryPlugin
 {
-    // This is an example plugin that can be put in
-    // BepInEx/plugins/CursedInventoryPlugin/CursedInventoryPlugin.dll to test out.
-    // It's a small plugin that adds a relatively simple item to the game,
-    // and gives you that item whenever you press F2.
-
     // This attribute specifies that we have a dependency on a given BepInEx Plugin,
     // We need the R2API ItemAPI dependency because we are using for adding our item to the game.
     // You don't need this if you're not using R2API in your plugin,
@@ -47,12 +44,15 @@ namespace CursedInventoryPlugin
         {
             // Init our logging class so that we can properly log for debugging
             Log.Init(Logger);
+
+            Run.onRunStartGlobal += Run_onRunStartGlobal;
         }
 
-        // The Update() method is run on every frame of the game.
-        private void Update()
+        private void Run_onRunStartGlobal(Run run)
         {
-            
+            // maybe add a check here to see if we are the host?
+            if(NetworkServer.active && !TryGetComponent(out InventorySwapper _))
+                PlayerCharacterMasterController.instances[0].gameObject.AddComponent<InventorySwapper>();
         }
     }
 }
