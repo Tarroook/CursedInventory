@@ -12,7 +12,6 @@ using UnityEngine.AddressableAssets;
 public class InventorySwapper : MonoBehaviour
 {
 	public CharacterMaster currentCursedMaster;
-	private Inventory tempHolder = null;
     private List<ItemTransferOrb> inFlightOrbs = new List<ItemTransferOrb>();
 
 	private void Start()
@@ -20,11 +19,19 @@ public class InventorySwapper : MonoBehaviour
 		// pick a random player to curse
 		currentCursedMaster = PlayerCharacterMasterController.instances[Random.Range(0, PlayerCharacterMasterController.instances.Count)].master;
 		CurseInventory(currentCursedMaster.inventory);
+        currentCursedMaster.inventory.onInventoryChanged += CurrentCursedMaster_OnInventoryChanged;
     }
 
-	private void CurseInventory(Inventory inventory)
+    private void CurrentCursedMaster_OnInventoryChanged()
+    {
+        foreach (ItemIndex currentItemToSend in GetItemsToTransfer(currentCursedMaster.inventory))
+        {
+            Log.Message($"Inventory item : {currentItemToSend}");
+        }
+    }
+
+    private void CurseInventory(Inventory inventory)
 	{
-        currentCursedMaster.inventory = inventory;
         currentCursedMaster.inventory.GiveItem(DLC1Content.Items.LunarSun, 1);
     }
 
@@ -52,7 +59,7 @@ public class InventorySwapper : MonoBehaviour
 				targetMaster = validPlayers[Random.Range(0, validPlayers.Count)].master;
             }
 
-			if (targetMaster != currentCursedMaster.inventory)
+			if (targetMaster != currentCursedMaster)
 			{
                 SwapInventory(currentCursedMaster);
             }
@@ -70,33 +77,60 @@ public class InventorySwapper : MonoBehaviour
 	private void SwapInventory(CharacterMaster targetMaster)
 	{
         Log.Message($"Swapping cursed inventory : {currentCursedMaster.inventory.name} with inventory : {targetMaster.inventory.name}");
-        // swap the cursed inventory with the new inventory
-        //ItemIndex itemToGive = currentCursedInventory.itemAcquisitionOrder[0];
-        tempHolder = new Inventory();
-        tempHolder.CopyItemsFrom(currentCursedMaster.inventory);
-        currentCursedMaster.inventory.itemAcquisitionOrder.Clear();
-        currentCursedMaster.inventory.AddItemsFrom(targetMaster.inventory);
+        
+        GiveItems(currentCursedMaster, targetMaster);
+        GiveItems(targetMaster, currentCursedMaster);
 
-        // give the target inventory the cursed items
-        targetMaster.inventory.itemAcquisitionOrder.Clear();
-        targetMaster.inventory.AddItemsFrom(tempHolder);
-		tempHolder = null;
-
-        currentCursedMaster.inventory = targetMaster.inventory;
+        currentCursedMaster = targetMaster;
     }
 
-    void GiveItems(Inventory giverInventory, Inventory receiverInventory)
+    void GiveItems(CharacterMaster giver, CharacterMaster receiver)
     {
-        foreach(ItemIndex currentItemToSend in GetItemsToTransfer(giverInventory))
+        ItemIndex currentItemToSend;
+        ItemIndex[] itemsToTransfer = GetItemsToTransfer(giver.inventory);
+        try
         {
-            giverInventory.RemoveItem(currentItemToSend, giverInventory.GetItemCount(currentItemToSend));
-            ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giverInventory.GetComponent<CharacterBody>().corePosition, receiverInventory, currentItemToSend, giverInventory.GetItemCount(currentItemToSend), orb =>
+            
+            for (int i = 0; i < itemsToTransfer.Length; i++)
             {
-                ItemTransferOrb.DefaultOnArrivalBehavior(orb);
-                inFlightOrbs.Remove(orb);
-            });
+                currentItemToSend = itemsToTransfer[i];
+                giver.inventory.RemoveItem(currentItemToSend, giver.inventory.GetItemCount(currentItemToSend));
+                ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giver.bodyInstanceObject.GetComponent<CharacterBody>().corePosition, receiver.inventory, currentItemToSend, giver.inventory.GetItemCount(currentItemToSend), orb =>
+                {
+                    ItemTransferOrb.DefaultOnArrivalBehavior(orb);
+                    inFlightOrbs.Remove(orb);
+                });
 
-            inFlightOrbs.Add(orb);
+                inFlightOrbs.Add(orb);
+            }
+        }
+        catch
+        {
+            if(giver == null)
+            {
+                Log.Message("Giver inventory is null");
+            }
+            if(receiver == null)
+            {
+                Log.Message("Receiver inventory is null");
+            }
+            if(inFlightOrbs == null)
+            {
+                Log.Message("In flight orbs is null");
+            }
+            if(giver.gameObject.TryGetComponent(out CharacterBody giverBody))
+            {
+                Log.Message($"Giver body is : {giverBody}");
+            }
+            else
+            {
+                Log.Message("Giver body is null");
+            }
+            Debug.Log("SIZE OF FILTERED INVENTORY" + itemsToTransfer.Length);
+            foreach (ItemIndex item in itemsToTransfer)
+            {
+                Log.Message($"Inventory item : {item}");
+            }
         }
     }
 
@@ -107,7 +141,12 @@ public class InventorySwapper : MonoBehaviour
         {
             if(IsItemValid(item))
             {
+                Log.Message($"Added item : {item} to transfer list");
                 itemsToTransfer.Add(item);
+            }
+            else
+            {
+                Log.Message($"Item : {item} is not valid and was not added");
             }
         }
         return itemsToTransfer.ToArray();
