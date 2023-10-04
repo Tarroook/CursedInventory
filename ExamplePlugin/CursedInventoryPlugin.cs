@@ -1,7 +1,10 @@
 using BepInEx;
+using IL.RoR2.Orbs;
 using R2API;
 using RoR2;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
@@ -36,7 +39,7 @@ namespace CursedInventoryPlugin
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Tarook";
         public const string PluginName = "CursedInventory";
-        public const string PluginVersion = "0.0.0";
+        public const string PluginVersion = "0.0.1";
 
 
         // The Awake() method is run at the very start when the game is initialized.
@@ -54,5 +57,14 @@ namespace CursedInventoryPlugin
             if(NetworkServer.active && !TryGetComponent(out InventorySwapper _))
                 PlayerCharacterMasterController.instances[0].gameObject.AddComponent<InventorySwapper>();
         }
+        public static IEnumerable<CharacterMaster> GetAllPlayerMasters(bool requireAlive)
+        {
+            return from playerMasterController in PlayerCharacterMasterController.instances
+                   where playerMasterController
+                   let playerMaster = playerMasterController.master
+                   where playerMaster && (!requireAlive || !playerMaster.IsDeadAndOutOfLivesServer())
+                   select playerMaster;
+        }
     }
+
 }
