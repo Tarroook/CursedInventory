@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using static RoR2.Chat;
 
 public class InventorySwapper : MonoBehaviour
 {
@@ -17,22 +18,20 @@ public class InventorySwapper : MonoBehaviour
 	private void Start()
 	{
 		// pick a random player to curse
-		currentCursedMaster = PlayerCharacterMasterController.instances[Random.Range(0, PlayerCharacterMasterController.instances.Count)].master;
-		CurseInventory(currentCursedMaster.inventory);
-        currentCursedMaster.inventory.onInventoryChanged += CurrentCursedMaster_OnInventoryChanged;
+		CurseSurvivor(PlayerCharacterMasterController.instances[Random.Range(0, PlayerCharacterMasterController.instances.Count)].master, true);
     }
 
-    private void CurrentCursedMaster_OnInventoryChanged()
+    private void CurseSurvivor(CharacterMaster newCursedMaster, bool addItem)
     {
-        foreach (ItemIndex currentItemToSend in GetItemsToTransfer(currentCursedMaster.inventory))
-        {
-            Log.Message($"Inventory item : {currentItemToSend}");
-        }
-    }
+        currentCursedMaster = newCursedMaster;
+        if(addItem)
+            currentCursedMaster.inventory.GiveItem(DLC1Content.Items.LunarSun, 1);
 
-    private void CurseInventory(Inventory inventory)
-	{
-        currentCursedMaster.inventory.GiveItem(DLC1Content.Items.LunarSun, 1);
+        Chat.SendBroadcastChat(new SimpleChatMessage
+        {
+            baseToken = "<color=#e5eefc>{0}</color>",
+            paramTokens = new[] { "The curse has moved to a new survivor." }
+        });
     }
 
 	private void Update()
@@ -43,7 +42,7 @@ public class InventorySwapper : MonoBehaviour
             // get a random player with an inventory that isn't the current one and swap with it
             List<PlayerCharacterMasterController> validPlayers = PlayerCharacterMasterController.instances.Where(instance => instance.master != currentCursedMaster).ToList();
             CharacterMaster targetMaster;
-            if (validPlayers.Count == 0) // might just work actually since we filter out the current user and he 
+            if (validPlayers.Count == 0)
 			{
                 Log.Message("No valid players found");
                 return;
@@ -81,56 +80,21 @@ public class InventorySwapper : MonoBehaviour
         GiveItems(currentCursedMaster, targetMaster);
         GiveItems(targetMaster, currentCursedMaster);
 
-        currentCursedMaster = targetMaster;
+        CurseSurvivor(targetMaster, false);
     }
 
     void GiveItems(CharacterMaster giver, CharacterMaster receiver)
     {
-        ItemIndex currentItemToSend;
-        ItemIndex[] itemsToTransfer = GetItemsToTransfer(giver.inventory);
-        try
+        foreach (ItemIndex currentItemToGive in GetItemsToTransfer(giver.inventory))
         {
-            
-            for (int i = 0; i < itemsToTransfer.Length; i++)
+            giver.inventory.RemoveItem(currentItemToGive, giver.inventory.GetItemCount(currentItemToGive));
+            ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giver.GetBody().GetComponent<CharacterBody>().corePosition, receiver.inventory, currentItemToGive, giver.inventory.GetItemCount(currentItemToGive), orb =>
             {
-                currentItemToSend = itemsToTransfer[i];
-                giver.inventory.RemoveItem(currentItemToSend, giver.inventory.GetItemCount(currentItemToSend));
-                ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giver.bodyInstanceObject.GetComponent<CharacterBody>().corePosition, receiver.inventory, currentItemToSend, giver.inventory.GetItemCount(currentItemToSend), orb =>
-                {
-                    ItemTransferOrb.DefaultOnArrivalBehavior(orb);
-                    inFlightOrbs.Remove(orb);
-                });
+                ItemTransferOrb.DefaultOnArrivalBehavior(orb);
+                inFlightOrbs.Remove(orb);
+            });
 
-                inFlightOrbs.Add(orb);
-            }
-        }
-        catch
-        {
-            if(giver == null)
-            {
-                Log.Message("Giver inventory is null");
-            }
-            if(receiver == null)
-            {
-                Log.Message("Receiver inventory is null");
-            }
-            if(inFlightOrbs == null)
-            {
-                Log.Message("In flight orbs is null");
-            }
-            if(giver.gameObject.TryGetComponent(out CharacterBody giverBody))
-            {
-                Log.Message($"Giver body is : {giverBody}");
-            }
-            else
-            {
-                Log.Message("Giver body is null");
-            }
-            Debug.Log("SIZE OF FILTERED INVENTORY" + itemsToTransfer.Length);
-            foreach (ItemIndex item in itemsToTransfer)
-            {
-                Log.Message($"Inventory item : {item}");
-            }
+            inFlightOrbs.Add(orb);
         }
     }
 
