@@ -12,25 +12,25 @@ using static RoR2.Chat;
 
 public class InventorySwapper : MonoBehaviour
 {
-	public CharacterMaster currentCursedMaster;
+	public NetworkUser currentCursedUser;
     private List<ItemTransferOrb> inFlightOrbs = new List<ItemTransferOrb>();
 
 	private void Start()
 	{
 		// pick a random player to curse
-		CurseSurvivor(PlayerCharacterMasterController.instances[Random.Range(0, PlayerCharacterMasterController.instances.Count)].master, true);
+		CurseSurvivor(NetworkUser.readOnlyInstancesList[Random.Range(0, NetworkUser.readOnlyInstancesList.Count)], true);
     }
 
-    private void CurseSurvivor(CharacterMaster newCursedMaster, bool addItem)
+    private void CurseSurvivor(NetworkUser newCursedUser, bool addItem)
     {
-        currentCursedMaster = newCursedMaster;
+        currentCursedUser = newCursedUser;
         if(addItem)
-            currentCursedMaster.inventory.GiveItem(DLC1Content.Items.LunarSun, 1);
+            currentCursedUser.master.inventory.GiveItem(DLC1Content.Items.LunarSun, 1);
 
-        Chat.SendBroadcastChat(new SimpleChatMessage
+        SendBroadcastChat(new SimpleChatMessage
         {
-            baseToken = "<color=#e5eefc>{0}</color>",
-            paramTokens = new[] { "The curse has moved to a new survivor." }
+            baseToken = "<color=#3c0054>{0}</color>",
+            paramTokens = new[] {$"The curse has moved to {currentCursedUser.userName}" }
         });
     }
 
@@ -40,8 +40,8 @@ public class InventorySwapper : MonoBehaviour
 		{
             var instances = PlayerCharacterMasterController.instances;
             // get a random player with an inventory that isn't the current one and swap with it
-            List<PlayerCharacterMasterController> validPlayers = PlayerCharacterMasterController.instances.Where(instance => instance.master != currentCursedMaster).ToList();
-            CharacterMaster targetMaster;
+            List<NetworkUser> validPlayers = NetworkUser.readOnlyInstancesList.Where(instance => instance.Network_id.value != currentCursedUser.Network_id.value).ToList();
+            NetworkUser targetMaster;
             if (validPlayers.Count == 0)
 			{
                 Log.Message("No valid players found");
@@ -50,50 +50,50 @@ public class InventorySwapper : MonoBehaviour
 			else if (validPlayers.Count == 1)
 			{
                 Log.Message("Only one valid player found");
-				targetMaster = validPlayers[0].master;
+				targetMaster = validPlayers[0];
             }
 			else
 			{
 				Log.Message("Multiple valid players found");
-				targetMaster = validPlayers[Random.Range(0, validPlayers.Count)].master;
+				targetMaster = validPlayers[Random.Range(0, validPlayers.Count)];
             }
 
-			if (targetMaster != currentCursedMaster)
-			{
-                SwapInventory(currentCursedMaster);
-            }
+			if (targetMaster != currentCursedUser)
+                SwapInventory(targetMaster);
 			else
-			{
 				Log.Message("Target inventory is the same as the current cursed inventory");
-			}
 		}
 	}
 
 	/// <summary>
-	/// Swaps the cursed inventory with the targetMaster
+	/// Swaps the cursed inventory with the targetUser
 	/// </summary>
 	/// <param name="targetInventory"></param>
-	private void SwapInventory(CharacterMaster targetMaster)
+	private void SwapInventory(NetworkUser targetUser)
 	{
-        Log.Message($"Swapping cursed inventory : {currentCursedMaster.inventory.name} with inventory : {targetMaster.inventory.name}");
+        foreach(ItemTransferOrb orb in inFlightOrbs)
+        {
+            OrbManager.instance.ForceImmediateArrival(orb);
+        }
+        Log.Message($"Swapping cursed inventory : {currentCursedUser.userName} with inventory : {targetUser.userName}");
         
-        GiveItems(currentCursedMaster, targetMaster);
-        GiveItems(targetMaster, currentCursedMaster);
+        GiveItems(currentCursedUser, targetUser);
+        GiveItems(targetUser, currentCursedUser);
 
-        CurseSurvivor(targetMaster, false);
+        CurseSurvivor(targetUser, false);
     }
 
-    void GiveItems(CharacterMaster giver, CharacterMaster receiver)
+    void GiveItems(NetworkUser giver, NetworkUser receiver)
     {
-        foreach (ItemIndex currentItemToGive in GetItemsToTransfer(giver.inventory))
+        foreach (ItemIndex currentItemToGive in GetItemsToTransfer(giver.master.inventory))
         {
-            giver.inventory.RemoveItem(currentItemToGive, giver.inventory.GetItemCount(currentItemToGive));
-            ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giver.GetBody().GetComponent<CharacterBody>().corePosition, receiver.inventory, currentItemToGive, giver.inventory.GetItemCount(currentItemToGive), orb =>
+            ItemTransferOrb orb = ItemTransferOrb.DispatchItemTransferOrb(giver.master.GetBody().corePosition, receiver.master.inventory, currentItemToGive, giver.master.inventory.GetItemCount(currentItemToGive), currentOrb =>
             {
-                ItemTransferOrb.DefaultOnArrivalBehavior(orb);
-                inFlightOrbs.Remove(orb);
+                ItemTransferOrb.DefaultOnArrivalBehavior(currentOrb);
+                inFlightOrbs.Remove(currentOrb);
+                Log.Message($"Item transfer orb arrived at {receiver.userName}'s inventory");
             });
-
+            giver.master.inventory.RemoveItem(currentItemToGive, giver.master.inventory.GetItemCount(currentItemToGive));
             inFlightOrbs.Add(orb);
         }
     }
