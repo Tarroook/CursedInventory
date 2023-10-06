@@ -54,7 +54,7 @@ public class InventorySwapper : MonoBehaviour
         List<NetworkUser> validPlayers = NetworkUser.readOnlyInstancesList.Where(instance =>
                        (instance.Network_id.value != currentCursedUser.Network_id.value)
                                       && !instance.master.IsDeadAndOutOfLivesServer()).ToList();
-        NetworkUser targetMaster;
+        NetworkUser targetUser;
         if (validPlayers.Count == 0)
         {
             Log.Message("No valid players found");
@@ -63,17 +63,18 @@ public class InventorySwapper : MonoBehaviour
         else if (validPlayers.Count == 1)
         {
             Log.Message("Only one valid player found");
-            targetMaster = validPlayers[0];
+            targetUser = validPlayers[0];
         }
         else
         {
             Log.Message("Multiple valid players found");
-            targetMaster = validPlayers[Random.Range(0, validPlayers.Count)];
+            targetUser = validPlayers[Random.Range(0, validPlayers.Count)];
         }
 
-        if (targetMaster != currentCursedUser)
+        if (targetUser != currentCursedUser)
         {
-            SwapInventory(targetMaster);
+            SwapInventory(targetUser);
+            CurseSurvivor(targetUser, false);
             return true;
         }
         else
@@ -98,7 +99,7 @@ public class InventorySwapper : MonoBehaviour
         GiveItems(currentCursedUser, targetUser);
         GiveItems(targetUser, currentCursedUser);
 
-        CurseSurvivor(targetUser, false);
+
     }
 
     void GiveItems(NetworkUser giver, NetworkUser receiver)
