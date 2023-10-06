@@ -14,11 +14,26 @@ public class InventorySwapper : MonoBehaviour
 {
 	public NetworkUser currentCursedUser;
     private List<ItemTransferOrb> inFlightOrbs = new List<ItemTransferOrb>();
+    [Tooltip("Time between swaps in seconds")]
+    private int timeBetweenSwaps = 10;
+    private float minTimeBetweenSwaps = 5f;
+    private float timeSinceLastSwap = 0f;
+    
 
 	private void Start()
 	{
 		// pick a random player to curse
 		CurseSurvivor(NetworkUser.readOnlyInstancesList[Random.Range(0, NetworkUser.readOnlyInstancesList.Count)], true);
+    }
+
+    private void Update()
+    {
+        if ((int)Run.instance.GetRunStopwatch() % timeBetweenSwaps == 0 && timeSinceLastSwap > minTimeBetweenSwaps)
+        {
+            TrySwapInventory();
+            timeSinceLastSwap = 0f;
+        }
+        timeSinceLastSwap += Time.deltaTime;
     }
 
     private void CurseSurvivor(NetworkUser newCursedUser, bool addItem)
@@ -34,36 +49,39 @@ public class InventorySwapper : MonoBehaviour
         });
     }
 
-	private void Update()
-	{
-		if (Input.GetKeyDown(KeyCode.F2))
-		{
-            var instances = PlayerCharacterMasterController.instances;
-            // get a random player with an inventory that isn't the current one and swap with it
-            List<NetworkUser> validPlayers = NetworkUser.readOnlyInstancesList.Where(instance => instance.Network_id.value != currentCursedUser.Network_id.value).ToList();
-            NetworkUser targetMaster;
-            if (validPlayers.Count == 0)
-			{
-                Log.Message("No valid players found");
-                return;
-            }
-			else if (validPlayers.Count == 1)
-			{
-                Log.Message("Only one valid player found");
-				targetMaster = validPlayers[0];
-            }
-			else
-			{
-				Log.Message("Multiple valid players found");
-				targetMaster = validPlayers[Random.Range(0, validPlayers.Count)];
-            }
+    private bool TrySwapInventory()
+    {
+        List<NetworkUser> validPlayers = NetworkUser.readOnlyInstancesList.Where(instance =>
+                       (instance.Network_id.value != currentCursedUser.Network_id.value)
+                                      && !instance.master.IsDeadAndOutOfLivesServer()).ToList();
+        NetworkUser targetMaster;
+        if (validPlayers.Count == 0)
+        {
+            Log.Message("No valid players found");
+            return false;
+        }
+        else if (validPlayers.Count == 1)
+        {
+            Log.Message("Only one valid player found");
+            targetMaster = validPlayers[0];
+        }
+        else
+        {
+            Log.Message("Multiple valid players found");
+            targetMaster = validPlayers[Random.Range(0, validPlayers.Count)];
+        }
 
-			if (targetMaster != currentCursedUser)
-                SwapInventory(targetMaster);
-			else
-				Log.Message("Target inventory is the same as the current cursed inventory");
-		}
-	}
+        if (targetMaster != currentCursedUser)
+        {
+            SwapInventory(targetMaster);
+            return true;
+        }
+        else
+        {
+            Log.Message("Target inventory is the same as the current cursed inventory");
+            return false;
+        }
+    }
 
 	/// <summary>
 	/// Swaps the cursed inventory with the targetUser
