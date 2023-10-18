@@ -41,12 +41,36 @@ namespace CursedInventoryPlugin
         public const string PluginName = "CursedInventory";
         public const string PluginVersion = "0.0.1";
 
+        private static ItemDef curseItemDef;
+
 
         // The Awake() method is run at the very start when the game is initialized.
         public void Awake()
         {
             // Init our logging class so that we can properly log for debugging
             Log.Init(Logger);
+
+            curseItemDef = ScriptableObject.CreateInstance<ItemDef>();
+
+            curseItemDef.name = "CURSEITEM_NAME";
+            curseItemDef.nameToken = "CURSEITEM_NAME";
+            curseItemDef.pickupToken = "CURSEITEM_PICKUP";
+            curseItemDef.descriptionToken = "CURSEITEM_DESC";
+            curseItemDef.loreToken = "CURSEITEM_LORE";
+
+#pragma warning disable Publicizer001 // Accessing a member that was not originally public. Here we ignore this warning because with how this example is setup we are forced to do this
+            curseItemDef._itemTierDef = Addressables.LoadAssetAsync<ItemTierDef>("RoR2/Base/Common/LunarDef.asset").WaitForCompletion();
+#pragma warning restore Publicizer001
+
+            curseItemDef.pickupIconSprite = Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/MiscIcons/texMysteryIcon.png").WaitForCompletion();
+            curseItemDef.pickupModelPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/Base/Mystery/PickupMystery.prefab").WaitForCompletion();
+
+            curseItemDef.canRemove = true;
+            curseItemDef.hidden = false;
+
+            ItemDisplayRuleDict displayRules = new ItemDisplayRuleDict(null);
+
+            ItemAPI.Add(new CustomItem(curseItemDef, displayRules));
 
             Run.onRunStartGlobal += Run_onRunStartGlobal;
         }

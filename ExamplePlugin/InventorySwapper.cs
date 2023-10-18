@@ -16,19 +16,29 @@ public class InventorySwapper : MonoBehaviour
     private List<ItemTransferOrb> inFlightOrbs = new List<ItemTransferOrb>();
     [Tooltip("Time between swaps in seconds")]
     private int timeBetweenSwaps = 10;
+    private const int egoCentrismTimeToProc = 61; // because egocentrism's effect is called every minute we need to make sure it doesn't swap too often so the timer doesn't get reset
     private float minTimeBetweenSwaps = 5f;
     private float timeSinceLastSwap = 0f;
+    private float validTimeBetweenSwaps { get { return timeBetweenSwaps + egoCentrismTimeToProc; } }
     
 
 	private void Start()
 	{
-		// pick a random player to curse
-		CurseSurvivor(NetworkUser.readOnlyInstancesList[Random.Range(0, NetworkUser.readOnlyInstancesList.Count)], true);
+        //Run.onRunStartGlobal += Run_onRunStartGlobal;
+        // pick a random player to curse
+        CurseSurvivor(NetworkUser.readOnlyInstancesList[Random.Range(0, NetworkUser.readOnlyInstancesList.Count)], true);
     }
+
+    /*
+    private void Run_onRunStartGlobal(Run run)
+    {
+        CurseSurvivor(NetworkUser.readOnlyInstancesList[Random.Range(0, NetworkUser.readOnlyInstancesList.Count)], true);
+    }
+    */
 
     private void Update()
     {
-        if ((int)Run.instance.GetRunStopwatch() % timeBetweenSwaps == 0 && timeSinceLastSwap > minTimeBetweenSwaps)
+        if ((int)Run.instance.GetRunStopwatch() % validTimeBetweenSwaps == 0 && timeSinceLastSwap > minTimeBetweenSwaps)
         {
             TrySwapInventory();
             timeSinceLastSwap = 0f;
