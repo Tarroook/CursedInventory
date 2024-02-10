@@ -1,9 +1,4 @@
-# R2Boilerplate
+# Cursed Inventory
 
-This repository contains a sample mod for Risk of Rain 2.
-
-You can clone this repository, open the visual studio solution file and compile it immediately.
-
-This repository is meant to represent best practices for starting a simple mod.
-
-Once your mod get compiled, you can utilize the Thunderstore folder for later uploading it to https://thunderstore.io/c/riskofrain2/
+Cursed Inventory is a mod that adds an item that curses the player that holds it.
+Every now and then the inventory of the cursed user is swapped with someone else's inventory.
